@@ -3,6 +3,7 @@ import numpy as np
 import sklearn.linear_model as lin
 import scipy.stats as stat
 from scipy.stats import ttest_ind
+from scipy.stats import ttest_rel
 import math
 
 
@@ -145,6 +146,8 @@ def transform_features(i, pwrs):
     lr = lin.LinearRegression()
     reg = lr.fit(X, y)
 
+    print(reg.coef_)
+
     ############################
 
     X = []
@@ -158,7 +161,6 @@ def transform_features(i, pwrs):
     yp = reg.predict(X)
 
     R2_res_val = R2(y, yp)
-    #print("Validation " + str(i) + "_" + str(features[j]) + " = " + str(R2_res))
 
     ###########################
 
@@ -184,11 +186,6 @@ def transform_features(i, pwrs):
 
     print("Test Val" + str(i) + "_" + str(features[j]) + " = [" + str(R2_res_val) + ", " + str(R2_res_test) + "]")
 
-#for i in range(-5, 6):
-  #if i == 0: continue
-  # transform_features(i, [-5, 1, -2, 4, 8])
-
-# print(results[1] + results[3])
 
 original_sc_list = []
 selected_sc_list = []
@@ -274,14 +271,21 @@ def phase3(training_data, validation_data, segments):
   print("Selected SC correlation: " + str(selected_sc_cor_sum/segments))
   print("Selected SC p-value: " + str(selected_sc_p_sum/segments))
   
-phase3(read_csv(['gt_2011.csv', 'gt_2012.csv'], False), read_csv(['gt_2013.csv'], False), 10)
-# phase3(read_csv(['gt_2011.csv', 'gt_2012.csv', 'gt_2013.csv'], False), read_csv(['gt_2014.csv', 'gt_2015.csv'], False), 20)
+# phase3(read_csv(['gt_2011.csv', 'gt_2012.csv'], False), read_csv(['gt_2013.csv'], False), 10)
+#phase3(read_csv(['gt_2011.csv', 'gt_2012.csv', 'gt_2013.csv'], False), read_csv(['gt_2014.csv', 'gt_2015.csv'], False), 20)
 
-stat, p = ttest_ind(original_sc_list, selected_sc_list)
-print('Statistics=%.3f, p=%.3f' % (stat, p))
+# stat, p = ttest_ind(original_sc_list, selected_sc_list)
+# print('Statistics=%.3f, p=%.3f' % (stat, p))
+
+#stat, p = ttest_rel(original_sc_list, selected_sc_list)
+#print('Statistics=%.3f, p=%.3f' % (stat, p))
 
 #y, yp = partB()
 
 #print(MAE( y, yp ))
 #print(R2(y, yp))
 #print(SC(y, yp))
+
+for i in range(-5, 6):
+  if i == 0: continue
+  transform_features(i, [-5, 1, -2, 2, 0])
