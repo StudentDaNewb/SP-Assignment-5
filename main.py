@@ -7,21 +7,26 @@ from scipy.stats import ttest_rel
 import math
 
 
+# calculates MAE
 def MAE( data_real, data_pred ):
   return np.sum( np.abs( data_real - data_pred ) ) / len( data_real )
 
+# calculates R2
 def R2( data_real, data_pred ):
   mean = np.mean( data_real )
   sst = np.sum( ( data_real - mean ) * ( data_real - mean ) )
   ssr = np.sum( ( data_real - data_pred ) * ( data_real - data_pred ) )
   return 1.0 - ssr / sst
 
+# calculates the spearman rank correlation + pvalue
 def SC( data_real, data_pred ):
   return stat.spearmanr( data_real, data_pred )
 
+# transformation needed because when transforming features some themperatures are negative, hence rooting negative numbers does not work
 def convert_c_to_kelvin(celsius):
   return 273.15 + float(celsius)
 
+# reads the csvs, combines them together, converts AT to Kelvin, and returns the resulting dataset
 def read_csv(names, add_bias=True):
   l = []
   for name in names:
@@ -36,6 +41,7 @@ def read_csv(names, add_bias=True):
 
   return df
 
+# Divides the dataframe in N segments
 def segmentate_data(amt_segments, dataframe):
   segmented_df = []
   amt_entries_per_block = math.trunc(len(dataframe) / amt_segments)
@@ -49,6 +55,8 @@ def segmentate_data(amt_segments, dataframe):
     
   return segmented_df
 
+
+# performs phase 1 part a, returns the original and the predicted NOX
 def partA():
   df = pd.concat([pd.read_csv('gt_2011.csv', header=None), pd.read_csv('gt_2012.csv', header=None)], axis=0, ignore_index=True)
 
@@ -74,6 +82,7 @@ def partA():
 
   return y, yp
 
+# performs phase 1 part b, returns the original and the predicted NOX
 def partB():
   df = pd.concat([pd.read_csv('gt_2011.csv', header=None), pd.read_csv('gt_2012.csv', header=None), pd.read_csv('gt_2013.csv', header=None)], axis=0, ignore_index=True)
 
@@ -102,7 +111,11 @@ def partB():
 
   return y, yp
 
+  
+# results for best power-feature combinations
 results = [float('-inf'), '', float('-inf'), '']
+
+# performs phase 2, puts results into results list
 def transform_features(i, pwrs):
   # 0: AT
   # 1: AP - rem
@@ -116,7 +129,6 @@ def transform_features(i, pwrs):
   # 9: CO
   # 10: NOX
   
-  # features = [0, 1, 3, 5, 6, 7, 8, 9, 10]
   features = [0, 5, 6, 7, 8]
 
   df_train = read_csv(['gt_2011.csv', 'gt_2012.csv'], add_bias=False)
@@ -126,6 +138,7 @@ def transform_features(i, pwrs):
   # Amount of different permutations possible
   for j in range(5):
     if pwrs[j] != 0: continue
+    if i != 3: continue
     X = []
     y = df_train[10]
 
@@ -134,14 +147,6 @@ def transform_features(i, pwrs):
       for l in range(5):
         temp[l] = np.power(temp[l], np.power(2.0, i)) if l == j else np.power(temp[l], np.power(2.0, pwrs[l]))
       X.append(temp)
-
-    #for k in range(len(df_train[0])):
-    #  v0 = np.power(df_train[0][k], np.power(2.0, i)) if int( j / 1.0 ) % 2 == 0 else df_train[0][k]
-    #  v1 = np.power(df_train[5][k], np.power(2.0, i)) if int( j / 2.0 ) % 2 == 0 else df_train[5][k]
-    #  v2 = np.power(df_train[6][k], np.power(2.0, i)) if int( j / 4.0 ) % 2 == 0 else df_train[6][k]
-    #  v3 = np.power(df_train[7][k], np.power(2.0, i)) if int( j / 8.0 ) % 2 == 0 else df_train[7][k]
-    #  v4 = np.power(df_train[8][k], np.power(2.0, i)) if int( j / 16.0 ) % 2 == 0 else df_train[8][k]
-    #  X.append([v0, v1, v2, v3, v4])
 
     lr = lin.LinearRegression()
     reg = lr.fit(X, y)
@@ -176,6 +181,9 @@ def transform_features(i, pwrs):
 
     R2_res_test = R2( y, yp )
 
+    print( yp[312] )
+    print( yp[6276])
+
     if R2_res_val > results[0]:
       results[0] = R2_res_val
       results[1] = "Best Val" + str(i) + "_" + str(features[j]) + " = [" + str(R2_res_val) + ", " + str(R2_res_test) + "]\n"
@@ -190,6 +198,7 @@ def transform_features(i, pwrs):
 original_sc_list = []
 selected_sc_list = []
 
+#performs phase 3.
 def phase3(training_data, validation_data, segments):
   # Whole data set
   df_train = training_data
@@ -208,10 +217,12 @@ def phase3(training_data, validation_data, segments):
   # Y values for each set
   df_val_y_seg = segmentate_data(segments, df_val[10])
 
+  #Defining initial train data sets
   lr = lin.LinearRegression()
   X_original=df_train_original
   X_selected=df_train_selected
 
+  #Adding  engineered set of features powers
   for k in range(len(X_selected[0])):
     X_selected[0][k] = np.power(X_selected[0][k], (1.0/32.0))
     X_selected[5][k] = np.power(X_selected[5][k], 2.0)
@@ -221,30 +232,33 @@ def phase3(training_data, validation_data, segments):
 
   y=df_train[10]
 
-  original_val_sum = 0
-  selected_val_sum = 0
-  original_sc_cor_sum = 0
-  selected_sc_cor_sum = 0
-  original_sc_p_sum = 0
-  selected_sc_p_sum = 0
+  original_val_sum = 0 # original feature set validation value sum
+  selected_val_sum = 0 # selected feature set validation value sum
+  original_sc_cor_sum = 0 # original feature set Spearman Rank Correlation value sum
+  selected_sc_cor_sum = 0 # selected feature set Spearman Rank Correlation value sum
+  original_sc_p_sum = 0 # original feature set Spearman Rank Correlation p-value sum
+  selected_sc_p_sum = 0 # selected feature set Spearman Rank Correlation p-value sum
 
   for i in range(segments):
+    #fitting original data
     reg = lr.fit(X_original, y)
     yp_original = reg.predict(df_val_original_seg[i])
-
+    #fitting selected features data
     reg = lr.fit(X_selected, y)
     yp_selected = reg.predict(df_val_selected_seg[i])
-
+    #calculate R squared
     R2_original_val = R2(df_val_y_seg[i], yp_original)
     R2_selected_val = R2(df_val_y_seg[i], yp_selected)
 
     original_val_sum += R2_original_val
     selected_val_sum += R2_selected_val
-
+    #adding a block to the original data set
     X_original = pd.concat([X_original, df_val_original_seg[i]], axis=0)
+    #adding a block to the selected features data set
     X_selected = pd.concat([X_selected, df_val_selected_seg[i]], axis=0)
+    
     y = pd.concat([y, df_val_y_seg[i]], axis=0)
-
+    #calculate Spearman Rank Correlation
     original_sc = SC(df_val_y_seg[i], yp_original)
     selected_sc = SC(df_val_y_seg[i], yp_selected)
 
@@ -271,21 +285,32 @@ def phase3(training_data, validation_data, segments):
   print("Selected SC correlation: " + str(selected_sc_cor_sum/segments))
   print("Selected SC p-value: " + str(selected_sc_p_sum/segments))
   
-# phase3(read_csv(['gt_2011.csv', 'gt_2012.csv'], False), read_csv(['gt_2013.csv'], False), 10)
-#phase3(read_csv(['gt_2011.csv', 'gt_2012.csv', 'gt_2013.csv'], False), read_csv(['gt_2014.csv', 'gt_2015.csv'], False), 20)
 
-# stat, p = ttest_ind(original_sc_list, selected_sc_list)
-# print('Statistics=%.3f, p=%.3f' % (stat, p))
 
-#stat, p = ttest_rel(original_sc_list, selected_sc_list)
-#print('Statistics=%.3f, p=%.3f' % (stat, p))
-
-#y, yp = partB()
-
+#UNCOMMENT FOR PHASE 1
+#y, yp = partA()
 #print(MAE( y, yp ))
 #print(R2(y, yp))
 #print(SC(y, yp))
 
-for i in range(-5, 6):
-  if i == 0: continue
-  transform_features(i, [-5, 1, -2, 2, 0])
+#y, yp = partB()
+#print(MAE( y, yp ))
+#print(R2(y, yp))
+#print(SC(y, yp))
+
+
+
+#UNCOMMENT FOR PHASE 2
+#for i in range(5):
+#  transform_features(i, [0, 0, 0, 0, 0])
+
+#UNCOMMENT FOR PHASE 3
+#phase3(read_csv(['gt_2011.csv', 'gt_2012.csv'], False), read_csv(['gt_2013.csv'], False), 10)
+#phase3(read_csv(['gt_2011.csv', 'gt_2012.csv', 'gt_2013.csv'], False), read_csv(['gt_2014.csv', 'gt_2015.csv'], False), 20)
+
+#stat, p = ttest_ind(original_sc_list, selected_sc_list)
+#print('Statistics=%.3f, p=%.3f' % (stat, p))
+
+#stat, p = ttest_rel(original_sc_list, selected_sc_list)
+#print('Statistics=%.3f, p=%.3f' % (stat, p))
+
